@@ -38,6 +38,9 @@ public class RetryExecutor {
         List<Long> attemptLatencies = new ArrayList<>();
         int attempts = 0;
         int downstreamCalls = 0;
+        int timeoutCount = 0;
+        int circuitBreakerRejected = 0;
+        int bulkheadRejected = 0;
         String terminalStatus = "unknown";
 
         for (int attempt = 1; attempt <= policy.maxAttempts(); attempt++) {
@@ -48,15 +51,18 @@ public class RetryExecutor {
             attemptLatencies.add(result.latencyMs());
             terminalStatus = result.status();
             downstreamCalls += result.downstreamCallStarted() ? 1 : 0;
+            timeoutCount += "timeout".equals(result.status()) ? 1 : 0;
+            circuitBreakerRejected += "circuit-open".equals(result.status()) ? 1 : 0;
+            bulkheadRejected += "bulkhead-full".equals(result.status()) ? 1 : 0;
             if (result.successful()) {
-                return outcome(true, attempts, downstreamCalls, requestStarted, attemptLatencies, terminalStatus);
+                return outcome(true, attempts, downstreamCalls, timeoutCount, circuitBreakerRejected, bulkheadRejected, requestStarted, attemptLatencies, terminalStatus);
             }
             if ("circuit-open".equals(result.status()) || "bulkhead-full".equals(result.status())) {
                 break;
             }
         }
 
-        return outcome(false, attempts, downstreamCalls, requestStarted, attemptLatencies, terminalStatus);
+        return outcome(false, attempts, downstreamCalls, timeoutCount, circuitBreakerRejected, bulkheadRejected, requestStarted, attemptLatencies, terminalStatus);
     }
 
     public void resetGuards() {
@@ -115,6 +121,9 @@ public class RetryExecutor {
             boolean successful,
             int attempts,
             int downstreamCalls,
+            int timeoutCount,
+            int circuitBreakerRejected,
+            int bulkheadRejected,
             long requestStarted,
             List<Long> attemptLatencies,
             String terminalStatus
@@ -124,6 +133,9 @@ public class RetryExecutor {
                 successful,
                 attempts,
                 downstreamCalls,
+                timeoutCount,
+                circuitBreakerRejected,
+                bulkheadRejected,
                 Duration.ofMillis(elapsedMs(requestStarted)),
                 attemptArray,
                 terminalStatus

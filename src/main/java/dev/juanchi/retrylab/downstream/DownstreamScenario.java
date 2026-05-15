@@ -6,13 +6,15 @@ import java.util.Locale;
 public enum DownstreamScenario {
     FIXED_DELAY,
     RANDOM_FAILURES,
-    PROGRESSIVE_DEGRADATION;
+    PROGRESSIVE_DEGRADATION,
+    LATENCY_TAIL_SPIKE;
 
     public static DownstreamScenario fromName(String rawName) {
         String normalized = rawName == null ? "" : rawName.toLowerCase(Locale.ROOT).replace('-', '_');
         return switch (normalized) {
             case "random_failures" -> RANDOM_FAILURES;
             case "progressive_degradation" -> PROGRESSIVE_DEGRADATION;
+            case "latency_tail_spike" -> LATENCY_TAIL_SPIKE;
             default -> FIXED_DELAY;
         };
     }
@@ -22,6 +24,7 @@ public enum DownstreamScenario {
             case FIXED_DELAY -> Duration.ofMillis(220);
             case RANDOM_FAILURES -> Duration.ofMillis(120);
             case PROGRESSIVE_DEGRADATION -> Duration.ofMillis(Math.min(900, 80 + callNumber * 3));
+            case LATENCY_TAIL_SPIKE -> callNumber % 6 == 0 ? Duration.ofMillis(650) : Duration.ofMillis(90);
         };
     }
 }

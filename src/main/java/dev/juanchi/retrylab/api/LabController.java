@@ -45,6 +45,9 @@ public class LabController {
         return response
                 .header("X-Attempts", Integer.toString(outcome.attempts()))
                 .header("X-Downstream-Calls", Long.toString(outcome.downstreamCalls()))
+                .header("X-Timeout-Count", Long.toString(outcome.timeoutCount()))
+                .header("X-Circuit-Breaker-Rejected", Long.toString(outcome.circuitBreakerRejected()))
+                .header("X-Bulkhead-Rejected", Long.toString(outcome.bulkheadRejected()))
                 .header("X-Attempt-Latencies-Ms", Arrays.stream(outcome.attemptLatenciesMs())
                         .mapToObj(Long::toString)
                         .collect(Collectors.joining(",")))
@@ -54,6 +57,9 @@ public class LabController {
                         "scenario", downstreamScenario.name().toLowerCase(),
                         "attempts", outcome.attempts(),
                         "downstreamCalls", outcome.downstreamCalls(),
+                        "timeoutCount", outcome.timeoutCount(),
+                        "circuitBreakerRejected", outcome.circuitBreakerRejected(),
+                        "bulkheadRejected", outcome.bulkheadRejected(),
                         "terminalStatus", outcome.terminalStatus()
                 ));
     }

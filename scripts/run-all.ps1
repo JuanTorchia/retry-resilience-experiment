@@ -1,7 +1,9 @@
 param(
     [string]$BaseUrl = "http://localhost:18080",
-    [int]$Vus = 40,
-    [string]$Duration = "30s",
+    [ValidateSet("smoke", "editorial", "custom")]
+    [string]$Mode = "smoke",
+    [int]$Vus = 0,
+    [string]$Duration = "",
     [switch]$UseDockerK6
 )
 
@@ -11,6 +13,20 @@ $root = Split-Path -Parent $PSScriptRoot
 $rawDir = Join-Path $root "results/raw"
 New-Item -ItemType Directory -Force -Path $rawDir | Out-Null
 Remove-Item (Join-Path $rawDir "*.json") -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $root "results/comparison.csv") -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $root "results/comparison.md") -Force -ErrorAction SilentlyContinue
+
+if ($Mode -eq "smoke") {
+    if ($Vus -le 0) { $Vus = 5 }
+    if ([string]::IsNullOrWhiteSpace($Duration)) { $Duration = "5s" }
+} elseif ($Mode -eq "editorial") {
+    if ($Vus -le 0) { $Vus = 40 }
+    if ([string]::IsNullOrWhiteSpace($Duration)) { $Duration = "60s" }
+} else {
+    if ($Vus -le 0 -or [string]::IsNullOrWhiteSpace($Duration)) {
+        throw "Mode custom requiere -Vus y -Duration explicitos"
+    }
+}
 
 function Wait-LabReady {
     param([string]$Url)
@@ -34,21 +50,27 @@ $runs = @(
     @{ name = "03-immediate-retry-fixed-delay"; policy = "immediate-retry"; scenario = "fixed-delay" },
     @{ name = "04-exponential-backoff-fixed-delay"; policy = "exponential-backoff"; scenario = "fixed-delay" },
     @{ name = "05-jitter-fixed-delay"; policy = "jitter"; scenario = "fixed-delay" },
-    @{ name = "06-circuit-breaker-fixed-delay"; policy = "circuit-breaker"; scenario = "fixed-delay" },
-    @{ name = "07-bulkhead-fixed-delay"; policy = "bulkhead"; scenario = "fixed-delay" },
-    @{ name = "08-no-retry-standard-timeout-random-failures"; policy = "no-retry-standard-timeout"; scenario = "random-failures" },
-    @{ name = "09-immediate-retry-random-failures"; policy = "immediate-retry"; scenario = "random-failures" },
-    @{ name = "10-jitter-random-failures"; policy = "jitter"; scenario = "random-failures" },
-    @{ name = "11-no-retry-standard-timeout-progressive-degradation"; policy = "no-retry-standard-timeout"; scenario = "progressive-degradation" },
-    @{ name = "12-immediate-retry-progressive-degradation"; policy = "immediate-retry"; scenario = "progressive-degradation" },
-    @{ name = "13-jitter-progressive-degradation"; policy = "jitter"; scenario = "progressive-degradation" }
+    @{ name = "06-no-retry-standard-timeout-random-failures"; policy = "no-retry-standard-timeout"; scenario = "random-failures" },
+    @{ name = "07-immediate-retry-random-failures"; policy = "immediate-retry"; scenario = "random-failures" },
+    @{ name = "08-exponential-backoff-random-failures"; policy = "exponential-backoff"; scenario = "random-failures" },
+    @{ name = "09-jitter-random-failures"; policy = "jitter"; scenario = "random-failures" },
+    @{ name = "10-no-retry-standard-timeout-progressive-degradation"; policy = "no-retry-standard-timeout"; scenario = "progressive-degradation" },
+    @{ name = "11-immediate-retry-progressive-degradation"; policy = "immediate-retry"; scenario = "progressive-degradation" },
+    @{ name = "12-jitter-progressive-degradation"; policy = "jitter"; scenario = "progressive-degradation" },
+    @{ name = "13-circuit-breaker-progressive-degradation"; policy = "circuit-breaker"; scenario = "progressive-degradation" },
+    @{ name = "14-bulkhead-progressive-degradation"; policy = "bulkhead"; scenario = "progressive-degradation" },
+    @{ name = "15-no-retry-standard-timeout-latency-tail-spike"; policy = "no-retry-standard-timeout"; scenario = "latency-tail-spike" },
+    @{ name = "16-immediate-retry-latency-tail-spike"; policy = "immediate-retry"; scenario = "latency-tail-spike" },
+    @{ name = "17-jitter-latency-tail-spike"; policy = "jitter"; scenario = "latency-tail-spike" }
 )
 
 Wait-LabReady -Url $BaseUrl
+Write-Host "Mode=$Mode VUs=$Vus Duration=$Duration BaseUrl=$BaseUrl"
 
 foreach ($run in $runs) {
     Write-Host "Running $($run.name)"
     $summaryPath = Join-Path $rawDir "$($run.name)-summary.json"
+    Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/reset" -TimeoutSec 10 | Out-Null
 
     if ($UseDockerK6) {
         docker compose run --rm `

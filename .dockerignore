@@ -1,0 +1,6 @@
+target/
+results/raw/
+*.log
+.git/
+.idea/
+.vscode/

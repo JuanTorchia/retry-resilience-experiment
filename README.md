@@ -21,6 +21,7 @@ Escenarios de downstream:
 - `fixed-delay`: delay fijo de 220 ms.
 - `random-failures`: delay de 120 ms y fallas aleatorias simuladas.
 - `progressive-degradation`: el delay sube con cada llamada real al downstream.
+- `latency-tail-spike`: la mayoría de llamadas son rápidas, pero cada sexta llamada simula un pico lento de cola.
 
 ## Métricas
 
@@ -29,12 +30,16 @@ El laboratorio mide:
 - total requests
 - successful requests
 - failed requests
+- success rate
 - error rate
 - successful requests per second
 - p95/p99 de todos los intentos
 - p95/p99 solo de requests exitosas
 - cantidad de llamadas reales al downstream
 - retry amplification factor
+- retry attempts por request
+- timeout count
+- rechazos por circuit breaker y bulkhead
 - max inflight downstream y observación de saturación/cola
 
 La métrica más importante para evitar autoengaño es `retry_amplification_factor = downstream_calls / total_requests`.
@@ -55,7 +60,7 @@ mvn spring-boot:run
 En otra terminal:
 
 ```powershell
-.\scripts\run-all.ps1 -BaseUrl http://localhost:18080 -Vus 40 -Duration 30s
+.\scripts\run-all.ps1 -Mode smoke
 ```
 
 Resultados:
@@ -67,13 +72,21 @@ Resultados:
 
 ## Ejecutar con Docker Compose
 
+Smoke rápido:
+
 ```powershell
-docker compose up -d --build retry-lab
-.\scripts\run-all.ps1 -UseDockerK6 -Vus 40 -Duration 30s
-docker compose down
+.\scripts\run-lab.ps1 -Mode smoke
 ```
 
-Si la primera corrida falla porque la app todavía está arrancando, repetí el `run-all.ps1`. No hay base de datos: PostgreSQL no agrega señal a esta hipótesis.
+Corrida editorial:
+
+```powershell
+.\scripts\run-lab.ps1 -Mode editorial
+```
+
+`smoke` usa 5 VUs durante 5 segundos por escenario. `editorial` usa 40 VUs durante 60 segundos por escenario. Los scripts limpian `results/raw/*.json`, `results/comparison.csv` y `results/comparison.md` antes de cada matriz.
+
+No hay base de datos: PostgreSQL no agrega señal a esta hipótesis.
 
 ## Endpoint manual
 
@@ -89,15 +102,17 @@ No busques “ganador universal”. Buscá el trade-off:
 
 - En fallas transitorias, retry puede subir el success rate.
 - En lentitud sostenida o degradación progresiva, retry puede multiplicar llamadas reales, subir p95/p99 y consumir capacidad downstream.
+- En tail latency, retries pueden convertir algunos timeouts en éxito, pero el intento lento original ya consumió capacidad.
 - Circuit breaker y bulkhead no “arreglan” el downstream: cambian el modo de falla para limitar daño.
 
 ## Limitaciones
 
 - Downstream simulado en el mismo proceso: útil para comparación relativa, no para extrapolar capacidad absoluta.
-- Aleatoriedad en `random-failures` y `jitter`: correr más de una vez antes de escribir conclusiones fuertes.
+- Aleatoriedad en `random-failures` y `jitter`: correr más de una vez antes de escribir conclusiones fuertes. La forma de los resultados debería mantenerse, no cada número exacto.
 - k6 mide requests HTTP; los percentiles de intentos vienen de instrumentación interna de la app.
+- La métrica canónica para el post es la salida interna de la app en `results/*`; el resumen k6 queda como apoyo.
 - Timeouts cancelan el intento desde el cliente, pero el costo de iniciar el intento ya existió. Esa es parte de la presión que el experimento quiere hacer visible.
 
-## Nota metodologica
+## Nota metodológica
 
-`no-retry-low-timeout` existe para mostrar una trampa de configuracion: un timeout demasiado bajo puede hacer fallar todo aunque el downstream responda cerca del presupuesto. Para comparar retries de forma justa, usar `no-retry-standard-timeout` como baseline, porque comparte el mismo timeout por intento que `immediate-retry`, `exponential-backoff`, `jitter`, `circuit-breaker` y `bulkhead`.
+`no-retry-low-timeout` existe para mostrar una trampa de configuración: un timeout demasiado bajo puede hacer fallar todo aunque el downstream responda cerca del presupuesto. Para comparar retries de forma justa, usar `no-retry-standard-timeout` como baseline, porque comparte el mismo timeout por intento que `immediate-retry`, `exponential-backoff`, `jitter`, `circuit-breaker` y `bulkhead`.

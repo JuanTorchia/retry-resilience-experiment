@@ -18,6 +18,15 @@ class RetryPolicyTest {
     }
 
     @Test
+    void noRetryStandardTimeoutIsTheFairSingleAttemptBaseline() {
+        RetryPolicy policy = RetryPolicy.fromName("no-retry-standard-timeout");
+
+        assertThat(policy.maxAttempts()).isEqualTo(1);
+        assertThat(policy.timeout()).isEqualTo(Duration.ofMillis(260));
+        assertThat(policy.delayBeforeAttempt(2)).isZero();
+    }
+
+    @Test
     void noRetryStandardTimeoutIsAComparableBaselineForRetryPolicies() {
         RetryPolicy policy = RetryPolicy.fromName("no-retry-standard-timeout");
 

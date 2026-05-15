@@ -6,6 +6,9 @@ public record RequestOutcome(
         boolean successful,
         int attempts,
         long downstreamCalls,
+        long timeoutCount,
+        long circuitBreakerRejected,
+        long bulkheadRejected,
         Duration totalLatency,
         long[] attemptLatenciesMs,
         String terminalStatus

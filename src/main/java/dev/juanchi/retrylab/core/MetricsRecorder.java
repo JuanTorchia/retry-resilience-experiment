@@ -15,6 +15,10 @@ public class MetricsRecorder {
     private final AtomicLong totalRequests = new AtomicLong();
     private final AtomicLong successfulRequests = new AtomicLong();
     private final AtomicLong downstreamCalls = new AtomicLong();
+    private final AtomicLong retryAttempts = new AtomicLong();
+    private final AtomicLong timeoutCount = new AtomicLong();
+    private final AtomicLong circuitBreakerRejected = new AtomicLong();
+    private final AtomicLong bulkheadRejected = new AtomicLong();
     private final AtomicInteger currentInflightDownstream = new AtomicInteger();
     private final AtomicInteger maxInflightDownstream = new AtomicInteger();
     private final List<Long> allAttemptLatenciesMs = Collections.synchronizedList(new ArrayList<>());
@@ -28,6 +32,10 @@ public class MetricsRecorder {
             successfulRequestLatenciesMs.add(outcome.totalLatency().toMillis());
         }
         downstreamCalls.addAndGet(outcome.downstreamCalls());
+        retryAttempts.addAndGet(Math.max(0, outcome.attempts() - 1));
+        timeoutCount.addAndGet(outcome.timeoutCount());
+        circuitBreakerRejected.addAndGet(outcome.circuitBreakerRejected());
+        bulkheadRejected.addAndGet(outcome.bulkheadRejected());
         for (long attemptLatency : outcome.attemptLatenciesMs()) {
             allAttemptLatenciesMs.add(attemptLatency);
         }
@@ -53,6 +61,7 @@ public class MetricsRecorder {
                 total,
                 successful,
                 failed,
+                total == 0 ? 0.0 : successful / (double) total,
                 total == 0 ? 0.0 : failed / (double) total,
                 successful / elapsedSeconds,
                 percentile(allAttemptLatenciesMs, 0.95),
@@ -61,6 +70,11 @@ public class MetricsRecorder {
                 percentile(successfulRequestLatenciesMs, 0.99),
                 downstream,
                 total == 0 ? 0.0 : downstream / (double) total,
+                retryAttempts.get(),
+                total == 0 ? 0.0 : retryAttempts.get() / (double) total,
+                timeoutCount.get(),
+                circuitBreakerRejected.get(),
+                bulkheadRejected.get(),
                 currentInflightDownstream.get(),
                 maxInflight,
                 saturationObservation(maxInflight)
@@ -71,6 +85,10 @@ public class MetricsRecorder {
         totalRequests.set(0);
         successfulRequests.set(0);
         downstreamCalls.set(0);
+        retryAttempts.set(0);
+        timeoutCount.set(0);
+        circuitBreakerRejected.set(0);
+        bulkheadRejected.set(0);
         currentInflightDownstream.set(0);
         maxInflightDownstream.set(0);
         allAttemptLatenciesMs.clear();
