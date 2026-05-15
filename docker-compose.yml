@@ -1,0 +1,22 @@
+services:
+  retry-lab:
+    build: .
+    ports:
+      - "18080:18080"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
+
+  k6:
+    image: grafana/k6:0.54.0
+    depends_on:
+      - retry-lab
+    volumes:
+      - ./k6:/scripts:ro
+      - ./results:/results
+    environment:
+      BASE_URL: http://retry-lab:18080
+      POLICY: no-retry-low-timeout
+      SCENARIO: fixed-delay
+      K6_VUS: "40"
+      K6_DURATION: 30s
+    command: run --summary-export /results/raw/default-summary.json /scripts/retry-lab.js
