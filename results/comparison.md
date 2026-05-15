@@ -2,6 +2,8 @@
 
 Generated from local simulation data in `results/raw`. Do not treat these numbers as production evidence.
 
+Notes: attempt p95/p99 are capped by the caller timeout when attempts time out; they are not full downstream service-time percentiles. `max inflight` and `concurrency_observation` are concurrency signals, not proof of CPU, network, pool or database saturation.
+
 | run | total | success rate | error rate | success rps | attempt p95/p99 ms | success p95/p99 ms | downstream calls | amplification | retry attempts/req | timeouts | CB rejected | bulkhead rejected | max inflight |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 01-no-retry-low-timeout-fixed-delay | 10315 | 0.0005 | 0.9995 | 0.08 | 180/184 | 278/278 | 10315 | 1 | 0 | 10310 | 0 | 0 | 40 |

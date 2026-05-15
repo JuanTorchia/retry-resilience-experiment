@@ -27,6 +27,7 @@ class MetricSnapshotTest {
         assertThat(snapshot.timeoutCount()).isEqualTo(3);
         assertThat(snapshot.circuitBreakerRejected()).isEqualTo(1);
         assertThat(snapshot.bulkheadRejected()).isZero();
+        assertThat(snapshot.concurrencyObservation()).contains("low observed downstream concurrency");
         assertThat(snapshot.allAttemptLatencyP95Ms()).isEqualTo(110);
         assertThat(snapshot.successLatencyP95Ms()).isEqualTo(120);
     }

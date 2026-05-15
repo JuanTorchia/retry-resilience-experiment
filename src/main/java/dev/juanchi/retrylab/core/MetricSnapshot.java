@@ -20,6 +20,6 @@ public record MetricSnapshot(
         long bulkheadRejected,
         int currentInflightDownstream,
         int maxInflightDownstream,
-        String saturationObservation
+        String concurrencyObservation
 ) {
 }

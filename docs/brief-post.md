@@ -25,11 +25,17 @@ Escenarios:
 - `progressive-degradation`: la dependencia se vuelve cada vez más lenta a medida que recibe llamadas.
 - `latency-tail-spike`: la mayoría de llamadas son rápidas, pero aparece cola lenta predecible.
 
+Nota: `progressive-degradation` debe describirse como degradación sensible a carga. Una política con más retries genera más llamadas y por lo tanto acelera la degradación simulada. Eso es intencional para estudiar realimentación negativa, pero no debe venderse como “misma falla externa idéntica para todos”.
+
 ## Qué NO se puede concluir
 
 Este experimento no mide producción, una red real, un proveedor real, pools de conexiones reales ni capacidad absoluta. No permite afirmar “esta política escala a X RPS” ni “este timeout sirve para cualquier sistema”.
 
 Tampoco permite comparar librerías de resiliencia. El objetivo no es benchmarkear Resilience4j, Spring Boot o k6. El objetivo es aislar el efecto metodológico de retries, timeouts y límites de concurrencia.
+
+Los timeouts están simulados con cancelación del intento desde el caller. El laboratorio cuenta llamadas iniciadas al downstream, pero no modela perfectamente trabajo residual después de un timeout. En sistemas HTTP, DB o colas, el downstream puede seguir trabajando aunque el cliente haya dejado de esperar.
+
+`max_inflight` y `concurrency_observation` son señales de concurrencia observada, no prueba directa de saturación real de CPU, red, pool o base de datos.
 
 ## Resultados fuertes
 
@@ -44,6 +50,7 @@ Son resultados defendibles si aparecen de forma consistente en corridas `editori
 
 - Comparar retries contra `no-retry-low-timeout` es injusto: muestra mala configuración, no resiliencia.
 - Mirar solo p95 de requests exitosas oculta intentos fallidos, timeouts y presión real sobre downstream.
+- Leer p95/p99 de intentos como latencia real del downstream es incorrecto cuando hay timeouts: esos percentiles están limitados por el presupuesto del caller.
 - Mirar solo success rate oculta amplificación. Un resultado con más éxitos puede estar comprándolos con demasiadas llamadas extra.
 - Mirar solo error rate penaliza circuit breakers y bulkheads, porque hacen visible una falla que antes se convertía en cola.
 - Promediar latencia borra el fenómeno que importa. Usar p95/p99.
@@ -55,6 +62,7 @@ Son resultados defendibles si aparecen de forma consistente en corridas `editori
 - Gráfico de barras o líneas: success rate vs amplification factor en `random-failures`.
 - Gráfico separado para `progressive-degradation`: successful RPS y max inflight.
 - Tabla corta de `circuit_breaker_rejected` y `bulkhead_rejected` para explicar que rechazo explícito no siempre es peor que cola implícita.
+- Si se publican números exactos, usar mediana/rango de varias corridas editoriales o declarar explícitamente que se muestra una corrida representativa.
 
 ## Conclusión sobria para equipos backend
 

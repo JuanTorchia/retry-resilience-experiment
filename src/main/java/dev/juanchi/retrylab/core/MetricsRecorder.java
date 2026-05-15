@@ -77,7 +77,7 @@ public class MetricsRecorder {
                 bulkheadRejected.get(),
                 currentInflightDownstream.get(),
                 maxInflight,
-                saturationObservation(maxInflight)
+                concurrencyObservation(maxInflight)
         );
     }
 
@@ -109,13 +109,13 @@ public class MetricsRecorder {
         return copy.get(Math.max(0, Math.min(index, copy.size() - 1)));
     }
 
-    private static String saturationObservation(int maxInflight) {
+    private static String concurrencyObservation(int maxInflight) {
         if (maxInflight >= 80) {
-            return "high downstream concurrency; likely saturation or queueing under this workload";
+            return "high observed downstream concurrency; inspect queueing and resource saturation separately";
         }
         if (maxInflight >= 30) {
-            return "moderate downstream concurrency; watch for queueing if latency rises";
+            return "moderate observed downstream concurrency; not proof of saturation by itself";
         }
-        return "no visible downstream saturation in this run";
+        return "low observed downstream concurrency in this run";
     }
 }

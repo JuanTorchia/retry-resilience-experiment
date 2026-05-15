@@ -22,6 +22,16 @@ $rows = Get-ChildItem $rawDir -Filter "*-app-metrics.json" -ErrorAction Silently
     }
 
     $policyScenario = $name -replace "^\d+-", ""
+    $concurrencyObservation = [string]$app.concurrencyObservation
+    if ([string]::IsNullOrWhiteSpace($concurrencyObservation)) {
+        $concurrencyObservation = [string]$app.saturationObservation
+    }
+    $concurrencyObservation = switch ($concurrencyObservation) {
+        "high downstream concurrency; likely saturation or queueing under this workload" { "high observed downstream concurrency; inspect queueing and resource saturation separately" }
+        "moderate downstream concurrency; watch for queueing if latency rises" { "moderate observed downstream concurrency; not proof of saturation by itself" }
+        "no visible downstream saturation in this run" { "low observed downstream concurrency in this run" }
+        default { $concurrencyObservation }
+    }
     [pscustomobject]@{
         run = $name
         policy_scenario = $policyScenario
@@ -43,7 +53,7 @@ $rows = Get-ChildItem $rawDir -Filter "*-app-metrics.json" -ErrorAction Silently
         circuit_breaker_rejected = [long]$app.circuitBreakerRejected
         bulkhead_rejected = [long]$app.bulkheadRejected
         max_inflight_downstream = [int]$app.maxInflightDownstream
-        saturation_observation = [string]$app.saturationObservation
+        concurrency_observation = $concurrencyObservation
         k6_http_req_failed_rate = $k6FailedRate
     }
 }
@@ -54,6 +64,8 @@ $lines = @()
 $lines += "# Retry Lab Comparison"
 $lines += ""
 $lines += 'Generated from local simulation data in `results/raw`. Do not treat these numbers as production evidence.'
+$lines += ""
+$lines += 'Notes: attempt p95/p99 are capped by the caller timeout when attempts time out; they are not full downstream service-time percentiles. `max inflight` and `concurrency_observation` are concurrency signals, not proof of CPU, network, pool or database saturation.'
 $lines += ""
 $lines += "| run | total | success rate | error rate | success rps | attempt p95/p99 ms | success p95/p99 ms | downstream calls | amplification | retry attempts/req | timeouts | CB rejected | bulkhead rejected | max inflight |"
 $lines += "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"

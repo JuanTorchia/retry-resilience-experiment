@@ -9,7 +9,7 @@ El experimento es una simulación local. No representa producción, incidentes r
 La app Spring Boot expone `GET /api/work`. Cada request llama a un downstream simulado con una política configurable:
 
 - `no-retry-low-timeout`: 1 intento, timeout bajo.
-- `no-retry-standard-timeout`: 1 intento, mismo timeout que las politicas con retry.
+- `no-retry-standard-timeout`: 1 intento, mismo timeout que las políticas con retry.
 - `immediate-retry`: hasta 3 intentos, sin backoff.
 - `exponential-backoff`: hasta 3 intentos, backoff 75 ms y 150 ms.
 - `jitter`: hasta 3 intentos, exponential backoff con jitter.
@@ -40,9 +40,16 @@ El laboratorio mide:
 - retry attempts por request
 - timeout count
 - rechazos por circuit breaker y bulkhead
-- max inflight downstream y observación de saturación/cola
+- max inflight downstream y observación de concurrencia
 
 La métrica más importante para evitar autoengaño es `retry_amplification_factor = downstream_calls / total_requests`.
+
+Notas metodológicas importantes:
+
+- `all_attempt_p95_ms` y `all_attempt_p99_ms` quedan limitadas por el timeout del caller cuando un intento vence. No son percentiles completos del tiempo real de trabajo del downstream.
+- El laboratorio usa `future.cancel(true)` para cancelar intentos vencidos. Muchos sistemas HTTP, DB o colas pueden seguir ejecutando trabajo downstream aunque el cliente abandone. Por eso el experimento cuenta llamadas iniciadas, pero puede subestimar trabajo residual post-timeout.
+- `max_inflight_downstream` y `concurrency_observation` son señales de concurrencia observada. No prueban por sí solas saturación de CPU, red, pool de conexiones o base de datos.
+- `successful_requests_per_second` mide trabajo útil observado bajo esta carga cerrada de k6, no capacidad máxima general del sistema.
 
 ## Ejecutar local
 
@@ -104,6 +111,7 @@ No busques “ganador universal”. Buscá el trade-off:
 - En lentitud sostenida o degradación progresiva, retry puede multiplicar llamadas reales, subir p95/p99 y consumir capacidad downstream.
 - En tail latency, retries pueden convertir algunos timeouts en éxito, pero el intento lento original ya consumió capacidad.
 - Circuit breaker y bulkhead no “arreglan” el downstream: cambian el modo de falla para limitar daño.
+- En el post, conviene separar retries de mecanismos de contención. Circuit breaker y bulkhead pueden subir errores visibles mientras reducen llamadas reales o concurrencia.
 
 ## Limitaciones
 
@@ -112,7 +120,10 @@ No busques “ganador universal”. Buscá el trade-off:
 - k6 mide requests HTTP; los percentiles de intentos vienen de instrumentación interna de la app.
 - La métrica canónica para el post es la salida interna de la app en `results/*`; el resumen k6 queda como apoyo.
 - Timeouts cancelan el intento desde el cliente, pero el costo de iniciar el intento ya existió. Esa es parte de la presión que el experimento quiere hacer visible.
+- Para publicar números exactos, correr al menos tres veces `.\scripts\run-lab.ps1 -Mode editorial` y reportar mediana/rango, o declarar que `results/comparison.*` es una corrida representativa.
 
 ## Nota metodológica
 
 `no-retry-low-timeout` existe para mostrar una trampa de configuración: un timeout demasiado bajo puede hacer fallar todo aunque el downstream responda cerca del presupuesto. Para comparar retries de forma justa, usar `no-retry-standard-timeout` como baseline, porque comparte el mismo timeout por intento que `immediate-retry`, `exponential-backoff`, `jitter`, `circuit-breaker` y `bulkhead`.
+
+`progressive-degradation` modela una degradación sensible a carga: el delay crece con la cantidad de llamadas reales al downstream. No representa una falla externa idéntica para todas las políticas; representa el bucle de realimentación donde más retries pueden acelerar la degradación.
