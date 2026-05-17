@@ -2,6 +2,11 @@
 
 Laboratorio reproducible para medir cuándo un retry mejora resiliencia y cuándo amplifica una caída.
 
+Artículo relacionado / Related article:
+
+- Español: [Retry no es gratis: presupuesto, amplificación y el costo que no aparece en el p95](https://juanchi.dev/es/blog/retry-backoff-jitter-spring-boot-amplification)
+- English: [Retry isn't free: budget, amplification, and the cost that never shows up in p95](https://juanchi.dev/en/blog/retry-backoff-jitter-spring-boot-amplification)
+
 El experimento es una simulación local. No representa producción, incidentes reales ni capacidad real de un proveedor. Sirve para comparar políticas bajo las mismas condiciones controladas.
 
 ## Qué prueba
