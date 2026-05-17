@@ -2,6 +2,11 @@
 
 Reproducible lab for studying when retries improve resilience and when they amplify failure.
 
+Related article / Articulo relacionado:
+
+- English: [Retry isn't free: budget, amplification, and the cost that never shows up in p95](https://juanchi.dev/en/blog/retry-backoff-jitter-spring-boot-amplification)
+- Español: [Retry no es gratis: presupuesto, amplificacion y el costo que no aparece en el p95](https://juanchi.dev/es/blog/retry-backoff-jitter-spring-boot-amplification)
+
 Languages:
 
 - [English](#english)
